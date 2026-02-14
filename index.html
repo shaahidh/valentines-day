@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Valentine's Puzzle</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background: #ffb6c1;
+      font-family: Georgia, serif;
+      display: flex; flex-direction: column; align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* ── Floating hearts ── */
+    .hearts-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    .ht { position: absolute; opacity: 0.12; animation: fh linear infinite; }
+    @keyframes fh {
+      0% { transform: translateY(100vh); opacity: 0; }
+      10% { opacity: 0.12; } 90% { opacity: 0.12; }
+      100% { transform: translateY(-10vh); opacity: 0; }
+    }
+
+    h1 {
+      font-size: 1.1rem; color: #fff; margin: 14px 0 4px;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.25); z-index: 10;
+    }
+    #progress {
+      font-size: 0.75rem; color: rgba(255,255,255,0.75);
+      z-index: 10; margin-bottom: 6px;
+    }
+
+    /* ── Game container ── */
+    #game {
+      position: relative; z-index: 10;
+      width: 92vw; max-width: 740px;
+      margin: 0 auto;
+    }
+    #boardBox {
+      position: absolute;
+      border-radius: 8px;
+      border: 2px dashed rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.08);
+    }
+    #ghost { display: block; border-radius: 6px; opacity: 0.18; }
+
+    /* ── Pieces ── */
+    .piece {
+      position: absolute; cursor: grab; touch-action: none;
+      z-index: 20;
+      filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.3));
+    }
+    .piece.dragging {
+      cursor: grabbing; z-index: 100;
+      filter: drop-shadow(3px 5px 10px rgba(0,0,0,0.45));
+    }
+    .piece.placed {
+      cursor: default; z-index: 15;
+      filter: none; pointer-events: none;
+    }
+
+    .btn {
+      margin: 8px; padding: 8px 20px; font-size: 0.85rem;
+      background: #e75480; color: #fff; border: none;
+      border-radius: 8px; cursor: pointer; z-index: 10; position: relative;
+    }
+    .btn:hover { background: #d6436e; }
+
+    /* ── Win overlay — pastel gradient like reference ── */
+    .win {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: linear-gradient(140deg, #f0b8d0, #f0c8a0, #e0b8e8, #f0c0b0, #d8b0e0);
+      background-size: 300% 300%;
+      animation: winBg 8s ease infinite;
+      z-index: 200; opacity: 0; pointer-events: none;
+      transition: opacity 0.8s;
+    }
+    .win.show { opacity: 1; pointer-events: auto; }
+    @keyframes winBg {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .win-title {
+      font-size: 1.4rem; color: #fff; margin-bottom: 16px;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.15);
+      opacity: 0; transition: opacity 0.6s 0.3s;
+    }
+    .win.show .win-title { opacity: 1; }
+
+    /* ── TCG Card ── */
+    .tcg-float {
+      perspective: 900px;
+      opacity: 0; transform: scale(0.5);
+      transition: opacity 0.6s 0.5s, transform 0.8s 0.5s cubic-bezier(0.34,1.56,0.64,1);
+      cursor: pointer;
+    }
+    .win.show .tcg-float {
+      opacity: 1; transform: scale(1);
+    }
+
+    .tcg-card {
+      position: relative;
+      width: 270px;
+      background: #fff;
+      border-radius: 18px;
+      padding: 8px;
+      box-shadow: 0 8px 35px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+
+    /* ── Front face ── */
+    .tcg-front {
+      position: relative;
+      backface-visibility: hidden;
+      transform: translateZ(0.01px);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .card-image {
+      position: relative; width: 100%;
+    }
+    .card-image img {
+      width: 100%; display: block;
+      border-radius: 12px 12px 0 0;
+    }
+    .card-overlay {
+      position: absolute; top: 0; left: 0; right: 0;
+      padding: 14px 16px;
+      display: flex; justify-content: space-between;
+      font-size: 0.8rem; font-style: italic;
+      color: #fff;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.35);
+      pointer-events: none;
+    }
+    .card-footer {
+      background: #fff;
+      padding: 14px 16px;
+      border-radius: 0 0 12px 12px;
+    }
+    .card-footer h2 {
+      font-size: 0.95rem; color: #333; font-weight: 600;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .card-footer h2 span { color: #e75480; }
+    .card-footer p {
+      font-size: 0.65rem; color: #999; margin-top: 3px;
+    }
+
+    /* ── Holographic shine — poke-holo style ── */
+    .card__shine {
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(
+        110deg,
+        #ff6ec7, #7b68ee, #00bfff, #7fff00, #ffd700, #ff4500,
+        #ff6ec7, #7b68ee, #00bfff, #7fff00, #ffd700, #ff4500,
+        #ff6ec7
+      );
+      background-size: 300% 300%;
+      background-position:
+        calc(50% + (50% - var(--bg-x, 50%)) * 2.5)
+        calc(50% + (50% - var(--bg-y, 50%)) * 3);
+      mix-blend-mode: color-dodge;
+      filter: brightness(0.55) contrast(2.2) saturate(0.6);
+      opacity: var(--card-opacity, 0);
+      pointer-events: none; z-index: 2;
+      border-radius: inherit;
+    }
+    /* Idle shimmer when not interacting */
+    .card__shine.idle {
+      animation: idleShimmer 5s ease-in-out infinite;
+    }
+    @keyframes idleShimmer {
+      0%, 100% { opacity: 0.12; background-position: 40% 60%; }
+      50% { opacity: 0.22; background-position: 60% 40%; }
+    }
+
+    /* ── Glare spotlight — follows cursor ── */
+    .card__glare {
+      position: absolute; inset: 0;
+      background: radial-gradient(
+        farthest-corner circle at var(--pointer-x, 50%) var(--pointer-y, 50%),
+        hsla(0, 0%, 100%, 0.4) 10%,
+        hsla(0, 0%, 100%, 0.25) 20%,
+        hsla(0, 0%, 0%, 0.3) 90%
+      );
+      mix-blend-mode: overlay;
+      opacity: var(--card-opacity, 0);
+      pointer-events: none; z-index: 3;
+      border-radius: inherit;
+    }
+
+    /* ── Back face — matching reference style ── */
+    .tcg-back {
+      position: absolute;
+      top: 8px; right: 8px; bottom: 8px; left: 8px;
+      border-radius: 12px;
+      backface-visibility: hidden;
+      transform: rotateY(180deg);
+      overflow: hidden;
+      background: linear-gradient(180deg, #fef5f0, #fdf0f0, #fef5f0);
+      display: flex; flex-direction: column;
+    }
+    .back-header {
+      display: flex; justify-content: space-between;
+      padding: 18px 20px 0;
+      font-size: 0.85rem; color: #444;
+    }
+    .back-content {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .back-heart {
+      font-size: 48px;
+      animation: backPulse 2.5s ease-in-out infinite;
+      user-select: none;
+      margin-bottom: 16px;
+    }
+    @keyframes backPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+    .back-text {
+      font-size: 1.5rem;
+      font-style: italic;
+      color: #d63384;
+      text-align: center;
+      line-height: 1.5;
+      text-shadow: 0 1px 4px rgba(214,51,132,0.15);
+    }
+    .back-desc {
+      font-size: 0.7rem;
+      color: #b08090;
+      text-align: center;
+      margin-top: 12px;
+      line-height: 1.6;
+      padding: 0 10px 6px;
+    }
+    .play-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin: 8px auto 14px;
+      padding: 8px 22px;
+      background: linear-gradient(135deg, #e75480, #d63384);
+      color: #fff; border: none; border-radius: 20px;
+      font-family: Georgia, serif; font-size: 0.7rem;
+      cursor: pointer; position: relative; z-index: 5;
+      box-shadow: 0 3px 12px rgba(214,51,132,0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .play-btn:hover { transform: scale(1.06); box-shadow: 0 5px 18px rgba(214,51,132,0.4); }
+    .play-btn:active { transform: scale(0.97); }
+    .play-btn svg { width: 14px; height: 14px; fill: #fff; }
+
+    /* ── Video overlay ── */
+    .video-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 300; opacity: 0; pointer-events: none;
+      transition: opacity 0.4s;
+    }
+    .video-overlay.show { opacity: 1; pointer-events: auto; }
+    .video-overlay video {
+      max-width: 90vw; max-height: 75vh;
+      border-radius: 14px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    .video-close {
+      margin-top: 16px; padding: 8px 24px;
+      background: rgba(255,255,255,0.15); color: #fff;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 8px; font-size: 0.8rem;
+      cursor: pointer; font-family: Georgia, serif;
+      transition: background 0.2s;
+    }
+    .video-close:hover { background: rgba(255,255,255,0.25); }
+    .back-shine {
+      position: absolute; inset: 0;
+      background: linear-gradient(
+        110deg,
+        transparent 30%,
+        rgba(214,51,132,0.08) 47%,
+        rgba(255,255,255,0.1) 53%,
+        transparent 70%
+      );
+      background-size: 250% 100%;
+      animation: shineSweep 5s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .flip-hint {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.5);
+      margin-top: 10px;
+      opacity: 0; transition: opacity 0.5s 1.2s;
+    }
+    .win.show .flip-hint { opacity: 1; }
+
+    .win .btn {
+      margin-top: 10px; opacity: 0;
+      transition: opacity 0.5s 1s;
+    }
+    .win.show .btn { opacity: 1; }
+
+    /* ── Confetti ── */
+    .confetti {
+      position: fixed; z-index: 201; pointer-events: none;
+      animation: cf linear forwards;
+    }
+    @keyframes cf {
+      0% { transform: translateY(-10vh) rotate(0); opacity: 1; }
+      100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hearts-bg" id="hbg"></div>
+  <h1>Solve the puzzle!</h1>
+  <div id="progress">0 / 24 pieces</div>
+
+  <div id="game">
+    <div id="boardBox">
+      <canvas id="ghost" width="280" height="420"></canvas>
+    </div>
+  </div>
+
+  <button class="btn" id="scBtn">Shuffle</button>
+  <button class="btn" id="autoBtn" style="font-size:0.65rem;padding:4px 10px;opacity:0.5">Auto Solve</button>
+
+  <!-- Win overlay with interactive TCG card -->
+  <div class="win" id="win">
+    <h1 class="win-title">Happy Valentine's Day!</h1>
+    <div class="tcg-float" id="tcgFloat">
+      <div class="tcg-card" id="tcgCard">
+        <!-- Front face -->
+        <div class="tcg-front">
+          <div class="card-image">
+            <img src="image.png" alt="">
+            <div class="card-overlay">
+              <span>Valentine</span>
+              <span>2026</span>
+            </div>
+            <div class="card__shine idle" id="cardShine"></div>
+            <div class="card__glare" id="cardGlare"></div>
+          </div>
+          <div class="card-footer">
+            <h2><span>&hearts;</span> Forever Yours</h2>
+            <p>One of a kind</p>
+          </div>
+        </div>
+        <!-- Back face -->
+        <div class="tcg-back">
+          <div class="back-shine"></div>
+          <div class="back-header">
+            <span>Valentine</span>
+            <span>2026</span>
+          </div>
+          <div class="back-content">
+            <div class="back-heart">&hearts;</div>
+            <div class="back-text">Be My<br>Valentine<br>Forever</div>
+          </div>
+          <div class="back-desc">
+            You are the missing piece<br>to my puzzle &hearts;
+          </div>
+          <button class="play-btn" id="playVideoBtn">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            Play Our Video
+          </button>
+        </div>
+      </div>
+    </div>
+    <p class="flip-hint">move to tilt &middot; click to flip</p>
+    <button class="btn" onclick="location.reload()">Play Again</button>
+  </div>
+
+  <!-- Video overlay -->
+  <div class="video-overlay" id="videoOverlay">
+    <video id="vlvVideo" src="vlv.mp4" playsinline controls></video>
+    <button class="video-close" id="videoClose">Close</button>
+  </div>
+
+<script>
+// ── Config ──
+const COLS = 4, ROWS = 6;
+const BW = 280, BH = 420;
+const PW = BW / COLS, PH = BH / ROWS;
+const TAB = 11;
+const EXT = Math.ceil(TAB * 1.6);
+const SNAP = 18;
+
+const gameEl  = document.getElementById('game');
+const boardBox = document.getElementById('boardBox');
+const ghostCvs = document.getElementById('ghost');
+const ghostCtx = ghostCvs.getContext('2d');
+const progressEl = document.getElementById('progress');
+
+const edgeData = [];
+const pieces = [];
+let placedCount = 0;
+
+// ── Layout ──
+function getGameWidth() {
+  return Math.min(window.innerWidth * 0.92, 740);
+}
+function layoutBoard() {
+  const gw = getGameWidth();
+  const bl = Math.round((gw - BW) / 2);
+  const bt = 15;
+  boardBox.style.left = bl + 'px';
+  boardBox.style.top = bt + 'px';
+  boardBox.style.width = BW + 'px';
+  boardBox.style.height = BH + 'px';
+  return { boardLeft: bl, boardTop: bt, gameWidth: gw };
+}
+const layout = layoutBoard();
+
+// ── Edge generation ──
+function genEdges() {
+  for (let r = 0; r < ROWS; r++) {
+    edgeData[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      edgeData[r][c] = {
+        top:    r === 0 ? 0 : -edgeData[r-1][c].bottom,
+        left:   c === 0 ? 0 : -edgeData[r][c-1].right,
+        right:  c === COLS-1 ? 0 : (Math.random() > 0.5 ? 1 : -1),
+        bottom: r === ROWS-1 ? 0 : (Math.random() > 0.5 ? 1 : -1),
+      };
+    }
+  }
+}
+
+// ── Jigsaw path ──
+function jigsawPath(ctx, w, h, t, e) {
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  if (e.top === 0) { ctx.lineTo(w, 0); }
+  else {
+    const d = -e.top;
+    ctx.lineTo(w*.34, 0);
+    ctx.bezierCurveTo(w*.34, d*t*.8, w*.28, d*t*1.5, w*.5, d*t*1.5);
+    ctx.bezierCurveTo(w*.72, d*t*1.5, w*.66, d*t*.8, w*.66, 0);
+    ctx.lineTo(w, 0);
+  }
+  if (e.right === 0) { ctx.lineTo(w, h); }
+  else {
+    const d = e.right;
+    ctx.lineTo(w, h*.34);
+    ctx.bezierCurveTo(w+d*t*.8, h*.34, w+d*t*1.5, h*.28, w+d*t*1.5, h*.5);
+    ctx.bezierCurveTo(w+d*t*1.5, h*.72, w+d*t*.8, h*.66, w, h*.66);
+    ctx.lineTo(w, h);
+  }
+  if (e.bottom === 0) { ctx.lineTo(0, h); }
+  else {
+    const d = e.bottom;
+    ctx.lineTo(w*.66, h);
+    ctx.bezierCurveTo(w*.66, h+d*t*.8, w*.72, h+d*t*1.5, w*.5, h+d*t*1.5);
+    ctx.bezierCurveTo(w*.28, h+d*t*1.5, w*.34, h+d*t*.8, w*.34, h);
+    ctx.lineTo(0, h);
+  }
+  if (e.left === 0) { ctx.closePath(); }
+  else {
+    const d = -e.left;
+    ctx.lineTo(0, h*.66);
+    ctx.bezierCurveTo(d*t*.8, h*.66, d*t*1.5, h*.72, d*t*1.5, h*.5);
+    ctx.bezierCurveTo(d*t*1.5, h*.28, d*t*.8, h*.34, 0, h*.34);
+    ctx.closePath();
+  }
+}
+
+// ── Create piece ──
+function createPiece(img, r, c) {
+  const e = edgeData[r][c];
+  const cvs = document.createElement('canvas');
+  cvs.width  = PW + EXT * 2;
+  cvs.height = PH + EXT * 2;
+  const ctx = cvs.getContext('2d');
+
+  ctx.save();
+  ctx.translate(EXT, EXT);
+  jigsawPath(ctx, PW, PH, TAB, e);
+  ctx.clip();
+  const sx = img.naturalWidth / BW;
+  const sy = img.naturalHeight / BH;
+  ctx.drawImage(img,
+    (c*PW - EXT) * sx, (r*PH - EXT) * sy,
+    (PW + EXT*2) * sx, (PH + EXT*2) * sy,
+    -EXT, -EXT, PW + EXT*2, PH + EXT*2
+  );
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(EXT, EXT);
+  jigsawPath(ctx, PW, PH, TAB, e);
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+
+  cvs.className = 'piece';
+  const cx = layout.boardLeft + c * PW - EXT;
+  const cy = layout.boardTop  + r * PH - EXT;
+
+  const piece = { row: r, col: c, el: cvs, cx, cy, placed: false };
+  pieces.push(piece);
+  gameEl.appendChild(cvs);
+  setupDrag(piece);
+}
+
+// ── Drag handling ──
+function setupDrag(piece) {
+  let startX, startY, origX, origY;
+  function onDown(ev) {
+    if (piece.placed) return;
+    ev.preventDefault();
+    piece.el.classList.add('dragging');
+    piece.el.setPointerCapture(ev.pointerId);
+    const pr = piece.el.getBoundingClientRect();
+    const gr = gameEl.getBoundingClientRect();
+    startX = ev.clientX; startY = ev.clientY;
+    origX = pr.left - gr.left; origY = pr.top - gr.top;
+  }
+  function onMove(ev) {
+    if (piece.placed || !piece.el.classList.contains('dragging')) return;
+    piece.el.style.left = (origX + ev.clientX - startX) + 'px';
+    piece.el.style.top  = (origY + ev.clientY - startY) + 'px';
+  }
+  function onUp() {
+    if (!piece.el.classList.contains('dragging')) return;
+    piece.el.classList.remove('dragging');
+    const curX = parseFloat(piece.el.style.left) || 0;
+    const curY = parseFloat(piece.el.style.top)  || 0;
+    if (Math.abs(curX - piece.cx) < SNAP && Math.abs(curY - piece.cy) < SNAP) {
+      piece.el.style.left = piece.cx + 'px';
+      piece.el.style.top  = piece.cy + 'px';
+      piece.el.classList.add('placed');
+      piece.placed = true;
+      placedCount++;
+      progressEl.textContent = placedCount + ' / ' + (COLS * ROWS) + ' pieces';
+      if (placedCount === COLS * ROWS) {
+        setTimeout(() => {
+          document.getElementById('win').classList.add('show');
+          spawnConfetti();
+        }, 400);
+      }
+    }
+  }
+  piece.el.addEventListener('pointerdown', onDown);
+  piece.el.addEventListener('pointermove', onMove);
+  piece.el.addEventListener('pointerup', onUp);
+}
+
+// ── Scatter pieces ──
+function scatter() {
+  const gw = getGameWidth();
+  const bl = layout.boardLeft;
+  const bt = layout.boardTop;
+  const sideSpace = bl - 20;
+  const useSides = sideSpace >= 90;
+  const shuffled = [...pieces].sort(() => Math.random() - 0.5);
+
+  if (useSides) {
+    const half = Math.ceil(shuffled.length / 2);
+    shuffled.forEach((p, i) => {
+      p.placed = false; p.el.classList.remove('placed');
+      if (i < half) {
+        p.el.style.left = (Math.random() * Math.max(sideSpace - 40, 10)) + 'px';
+        p.el.style.top  = (bt + Math.random() * (BH - 40)) + 'px';
+      } else {
+        p.el.style.left = (bl + BW + 15 + Math.random() * Math.max(sideSpace - 40, 10)) + 'px';
+        p.el.style.top  = (bt + Math.random() * (BH - 40)) + 'px';
+      }
+    });
+    gameEl.style.minHeight = (bt + BH + 30) + 'px';
+  } else {
+    const cols = 4, gap = 8, startY = bt + BH + 25;
+    shuffled.forEach((p, i) => {
+      p.placed = false; p.el.classList.remove('placed');
+      p.el.style.left = (10 + (i % cols) * (PW + EXT + gap)) + 'px';
+      p.el.style.top  = (startY + Math.floor(i / cols) * (PH + EXT + gap)) + 'px';
+    });
+    gameEl.style.minHeight = (startY + Math.ceil(shuffled.length / cols) * (PH + EXT + gap) + 30) + 'px';
+  }
+  placedCount = 0;
+  progressEl.textContent = '0 / ' + (COLS * ROWS) + ' pieces';
+}
+
+// ── Ghost image ──
+function drawGhost(img) {
+  ghostCtx.globalAlpha = 1;
+  ghostCtx.drawImage(img, 0, 0, BW, BH);
+}
+
+// ── TCG Card setup (sparkles removed — using poke-holo shine/glare instead) ──
+
+// ── Interactive TCG Card: spring physics + poke-holo effect ──
+function setupCardInteraction() {
+  const floatEl  = document.getElementById('tcgFloat');
+  const card     = document.getElementById('tcgCard');
+  const shineEl  = document.getElementById('cardShine');
+  const glareEl  = document.getElementById('cardGlare');
+
+  let isFlipped = false;
+  let isFlipping = false;
+  let hovering = false;
+
+  // Spring state: { value, velocity, target }
+  function makeSpring(initial) {
+    return { val: initial, vel: 0, tgt: initial };
+  }
+  const springX   = makeSpring(0);   // tilt X (rotateX)
+  const springY   = makeSpring(0);   // tilt Y (rotateY)
+  const springPx  = makeSpring(50);  // pointer-x %
+  const springPy  = makeSpring(50);  // pointer-y %
+  const springBgX = makeSpring(50);  // bg-x %
+  const springBgY = makeSpring(50);  // bg-y %
+  const springOp  = makeSpring(0);   // card-opacity
+
+  // Spring params — snappier when hovering, softer on leave
+  let stiffness = 0.066, damping = 0.25;
+
+  function stepSpring(s) {
+    const force = stiffness * (s.tgt - s.val);
+    s.vel = s.vel * (1 - damping) + force;
+    s.val += s.vel;
+  }
+
+  let rafId = null;
+  let baseYAngle = 0; // for flip animation
+
+  function tick() {
+    stepSpring(springX);
+    stepSpring(springY);
+    stepSpring(springPx);
+    stepSpring(springPy);
+    stepSpring(springBgX);
+    stepSpring(springBgY);
+    stepSpring(springOp);
+
+    // Apply 3D rotation
+    const flipY = isFlipped ? 180 : 0;
+    card.style.transform =
+      'rotateY(' + (flipY + springY.val) + 'deg) rotateX(' + springX.val + 'deg)';
+
+    // Update CSS custom properties for holo layers
+    card.style.setProperty('--pointer-x', springPx.val + '%');
+    card.style.setProperty('--pointer-y', springPy.val + '%');
+    card.style.setProperty('--bg-x', springBgX.val + '%');
+    card.style.setProperty('--bg-y', springBgY.val + '%');
+    card.style.setProperty('--card-opacity', springOp.val.toFixed(3));
+
+    // Dynamic shadow based on tilt magnitude
+    const mag = Math.sqrt(springX.val * springX.val + springY.val * springY.val);
+    const spread = 8 + (mag / 15) * 25;
+    const alpha = 0.1 + (mag / 25) * 0.15;
+    card.style.boxShadow =
+      '0 ' + Math.round(8 + mag * 0.6) + 'px ' + Math.round(spread) +
+      'px rgba(0,0,0,' + alpha.toFixed(3) + '), 0 2px 8px rgba(0,0,0,0.08)';
+
+    // Keep animating while springs are moving
+    const totalVel =
+      Math.abs(springX.vel) + Math.abs(springY.vel) +
+      Math.abs(springPx.vel) + Math.abs(springPy.vel) +
+      Math.abs(springBgX.vel) + Math.abs(springBgY.vel) +
+      Math.abs(springOp.vel);
+    const totalDist =
+      Math.abs(springX.val - springX.tgt) + Math.abs(springY.val - springY.tgt) +
+      Math.abs(springOp.val - springOp.tgt);
+
+    if (totalVel > 0.01 || totalDist > 0.01) {
+      rafId = requestAnimationFrame(tick);
+    } else {
+      // Snap to target
+      springX.val = springX.tgt; springY.val = springY.tgt;
+      springPx.val = springPx.tgt; springPy.val = springPy.tgt;
+      springBgX.val = springBgX.tgt; springBgY.val = springBgY.tgt;
+      springOp.val = springOp.tgt;
+      rafId = null;
+      if (!hovering) card.style.boxShadow = '';
+    }
+  }
+
+  function startRAF() {
+    if (!rafId) rafId = requestAnimationFrame(tick);
+  }
+
+  // Map 0-100 → 37-63 for subtle bg movement (poke-holo style)
+  function remap(v) { return 37 + (v / 100) * 26; }
+
+  function setTarget(clientX, clientY) {
+    const rect = floatEl.getBoundingClientRect();
+    const nx = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const ny = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+
+    springY.tgt = (nx - 0.5) * 30;   // ±15°
+    springX.tgt = (0.5 - ny) * 20;   // ±10°
+    springPx.tgt = nx * 100;
+    springPy.tgt = ny * 100;
+    springBgX.tgt = remap(nx * 100);
+    springBgY.tgt = remap(ny * 100);
+    springOp.tgt = 0.5;
+
+    startRAF();
+  }
+
+  function resetTarget() {
+    springX.tgt = 0; springY.tgt = 0;
+    springPx.tgt = 50; springPy.tgt = 50;
+    springBgX.tgt = 50; springBgY.tgt = 50;
+    springOp.tgt = 0;
+    // Softer spring on leave for organic return
+    stiffness = 0.01; damping = 0.06;
+    startRAF();
+  }
+
+  function flip() {
+    if (isFlipping) return;
+    isFlipping = true;
+    isFlipped = !isFlipped;
+    springX.tgt = 0; springY.tgt = 0;
+    // Animate flip via RAF lerp (separate from spring for snappiness)
+    const targetBaseY = isFlipped ? 180 : 0;
+    let curBaseY = isFlipped ? 0 : 180;
+    function flipTick() {
+      curBaseY += (targetBaseY - curBaseY) * 0.12;
+      springX.val += (0 - springX.val) * 0.15;
+      springY.val += (0 - springY.val) * 0.15;
+      card.style.transform =
+        'rotateY(' + (curBaseY + springY.val) + 'deg) rotateX(' + springX.val + 'deg)';
+      if (Math.abs(curBaseY - targetBaseY) > 0.5) {
+        requestAnimationFrame(flipTick);
+      } else {
+        card.style.transform =
+          'rotateY(' + (targetBaseY + springY.val) + 'deg) rotateX(' + springX.val + 'deg)';
+        isFlipping = false;
+        startRAF();
+      }
+    }
+    requestAnimationFrame(flipTick);
+  }
+
+  // ── Mouse events ──
+  floatEl.addEventListener('mouseenter', () => {
+    hovering = true;
+    stiffness = 0.066; damping = 0.25;
+    shineEl.classList.remove('idle');
+  });
+  floatEl.addEventListener('mousemove', (e) => {
+    if (isFlipping) return;
+    setTarget(e.clientX, e.clientY);
+  });
+  floatEl.addEventListener('mouseleave', () => {
+    hovering = false;
+    shineEl.classList.add('idle');
+    resetTarget();
+  });
+  floatEl.addEventListener('click', (e) => {
+    if (e.target.closest('.btn')) return;
+    flip();
+  });
+
+  // ── Touch events ──
+  let touchStart = null;
+  let touchMoved = false;
+  floatEl.addEventListener('touchstart', (e) => {
+    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    touchMoved = false;
+    hovering = true;
+    stiffness = 0.066; damping = 0.25;
+    shineEl.classList.remove('idle');
+  }, { passive: true });
+  floatEl.addEventListener('touchmove', (e) => {
+    if (isFlipping) return;
+    const t = e.touches[0];
+    if (Math.abs(t.clientX - touchStart.x) > 8 || Math.abs(t.clientY - touchStart.y) > 8) touchMoved = true;
+    setTarget(t.clientX, t.clientY);
+    e.preventDefault();
+  }, { passive: false });
+  floatEl.addEventListener('touchend', () => {
+    if (!touchMoved && !isFlipping) flip();
+    hovering = false;
+    shineEl.classList.add('idle');
+    resetTarget();
+  });
+}
+setupCardInteraction();
+
+// ── Init ──
+const img = new Image();
+img.onload = () => {
+  drawGhost(img);
+  genEdges();
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      createPiece(img, r, c);
+  scatter();
+};
+img.src = 'image.png';
+
+document.getElementById('scBtn').onclick = scatter;
+
+document.getElementById('autoBtn').onclick = () => {
+  pieces.forEach((p, i) => {
+    setTimeout(() => {
+      p.el.style.transition = 'left 0.4s ease, top 0.4s ease';
+      p.el.style.left = p.cx + 'px';
+      p.el.style.top  = p.cy + 'px';
+      p.el.classList.add('placed');
+      p.placed = true;
+      placedCount++;
+      progressEl.textContent = placedCount + ' / ' + (COLS * ROWS) + ' pieces';
+      setTimeout(() => { p.el.style.transition = ''; }, 400);
+      if (placedCount === COLS * ROWS) {
+        setTimeout(() => {
+          document.getElementById('win').classList.add('show');
+          spawnConfetti();
+        }, 500);
+      }
+    }, i * 80);
+  });
+};
+
+// ── Video player ──
+const videoOverlay = document.getElementById('videoOverlay');
+const vlvVideo = document.getElementById('vlvVideo');
+const playVideoBtn = document.getElementById('playVideoBtn');
+const videoCloseBtn = document.getElementById('videoClose');
+
+playVideoBtn.addEventListener('click', (e) => {
+  e.stopPropagation(); // prevent card flip
+  videoOverlay.classList.add('show');
+  vlvVideo.currentTime = 0;
+  vlvVideo.play();
+});
+videoCloseBtn.addEventListener('click', () => {
+  vlvVideo.pause();
+  videoOverlay.classList.remove('show');
+});
+videoOverlay.addEventListener('click', (e) => {
+  if (e.target === videoOverlay) {
+    vlvVideo.pause();
+    videoOverlay.classList.remove('show');
+  }
+});
+
+// ── Floating hearts background ──
+const hb = document.getElementById('hbg');
+for (let i = 0; i < 18; i++) {
+  const h = document.createElement('div');
+  h.className = 'ht';
+  h.textContent = ['\u2764','\u2665','\uD83D\uDC95','\uD83D\uDC96'][Math.floor(Math.random()*4)];
+  h.style.left = Math.random()*100+'%';
+  h.style.fontSize = (14+Math.random()*18)+'px';
+  h.style.animationDuration = (8+Math.random()*12)+'s';
+  h.style.animationDelay = (Math.random()*8)+'s';
+  hb.appendChild(h);
+}
+
+// ── Confetti ──
+function spawnConfetti() {
+  const cols = ['#ff6b8a','#ffd080','#ff85a1','#fff','#ffd1dc','#c084fc','#f0abfc'];
+  for (let i = 0; i < 80; i++) {
+    setTimeout(() => {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random()*100+'%';
+      c.style.background = cols[Math.floor(Math.random()*cols.length)];
+      c.style.width  = (4+Math.random()*6)+'px';
+      c.style.height = (4+Math.random()*6)+'px';
+      c.style.borderRadius = Math.random()>.5?'50%':'0';
+      c.style.animationDuration = (2+Math.random()*3)+'s';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 5000);
+    }, i * 30);
+  }
+}
+</script>
+</body>
+</html>
