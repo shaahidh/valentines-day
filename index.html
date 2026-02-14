@@ -13,6 +13,13 @@
       display: flex; flex-direction: column; align-items: center;
       overflow-x: hidden;
     }
+    .game-wrap {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
 
     /* ── Floating hearts ── */
     .hearts-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
@@ -24,7 +31,7 @@
     }
 
     h1 {
-      font-size: 1.1rem; color: #fff; margin: 14px 0 4px;
+      font-size: 1.4rem; color: #fff; margin: 18px 0 6px;
       text-shadow: 1px 1px 3px rgba(0,0,0,0.25); z-index: 10;
     }
     #progress {
@@ -35,7 +42,8 @@
     /* ── Game container ── */
     #game {
       position: relative; z-index: 10;
-      width: 92vw; max-width: 740px;
+      width: 94vw; max-width: 900px;
+      height: 570px;
       margin: 0 auto;
     }
     #boardBox {
@@ -87,7 +95,7 @@
     }
 
     .win-title {
-      font-size: 1.4rem; color: #fff; margin-bottom: 16px;
+      font-size: 1.8rem; color: #fff; margin-bottom: 20px;
       text-shadow: 0 1px 8px rgba(0,0,0,0.15);
       opacity: 0; transition: opacity 0.6s 0.3s;
     }
@@ -106,10 +114,10 @@
 
     .tcg-card {
       position: relative;
-      width: 270px;
+      width: 340px;
       background: #fff;
       border-radius: 18px;
-      padding: 8px;
+      padding: 10px;
       box-shadow: 0 8px 35px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
       transform-style: preserve-3d;
       will-change: transform;
@@ -134,7 +142,7 @@
       position: absolute; top: 0; left: 0; right: 0;
       padding: 14px 16px;
       display: flex; justify-content: space-between;
-      font-size: 0.8rem; font-style: italic;
+      font-size: 0.9rem; font-style: italic;
       color: #fff;
       text-shadow: 0 1px 6px rgba(0,0,0,0.35);
       pointer-events: none;
@@ -145,7 +153,7 @@
       border-radius: 0 0 12px 12px;
     }
     .card-footer h2 {
-      font-size: 0.95rem; color: #333; font-weight: 600;
+      font-size: 1.05rem; color: #333; font-weight: 600;
       display: flex; align-items: center; gap: 6px;
     }
     .card-footer h2 span { color: #e75480; }
@@ -199,7 +207,7 @@
     /* ── Back face — matching reference style ── */
     .tcg-back {
       position: absolute;
-      top: 8px; right: 8px; bottom: 8px; left: 8px;
+      top: 10px; right: 10px; bottom: 10px; left: 10px;
       border-radius: 12px;
       backface-visibility: hidden;
       transform: rotateY(180deg);
@@ -219,7 +227,7 @@
       padding: 20px;
     }
     .back-heart {
-      font-size: 48px;
+      font-size: 56px;
       animation: backPulse 2.5s ease-in-out infinite;
       user-select: none;
       margin-bottom: 16px;
@@ -229,7 +237,7 @@
       50% { transform: scale(1.15); }
     }
     .back-text {
-      font-size: 1.5rem;
+      font-size: 1.8rem;
       font-style: italic;
       color: #d63384;
       text-align: center;
@@ -324,17 +332,19 @@
 </head>
 <body>
   <div class="hearts-bg" id="hbg"></div>
-  <h1>Solve the puzzle!</h1>
-  <div id="progress">0 / 24 pieces</div>
+  <div class="game-wrap">
+    <h1>Solve the puzzle!</h1>
+    <div id="progress">0 / 24 pieces</div>
 
-  <div id="game">
-    <div id="boardBox">
-      <canvas id="ghost" width="280" height="420"></canvas>
+    <div id="game">
+      <div id="boardBox">
+        <canvas id="ghost" width="360" height="540"></canvas>
+      </div>
     </div>
-  </div>
 
-  <button class="btn" id="scBtn">Shuffle</button>
-  <button class="btn" id="autoBtn" style="font-size:0.65rem;padding:4px 10px;opacity:0.5">Auto Solve</button>
+    <button class="btn" id="scBtn">Shuffle</button>
+    <button class="btn" id="autoBtn" style="font-size:0.65rem;padding:4px 10px;opacity:0.5">Auto Solve</button>
+  </div>
 
   <!-- Win overlay with interactive TCG card -->
   <div class="win" id="win">
@@ -391,11 +401,11 @@
 <script>
 // ── Config ──
 const COLS = 4, ROWS = 6;
-const BW = 280, BH = 420;
+const BW = 360, BH = 540;
 const PW = BW / COLS, PH = BH / ROWS;
 const TAB = 11;
 const EXT = Math.ceil(TAB * 1.6);
-const SNAP = 18;
+const SNAP = 22;
 
 const gameEl  = document.getElementById('game');
 const boardBox = document.getElementById('boardBox');
