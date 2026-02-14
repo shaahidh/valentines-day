@@ -328,6 +328,37 @@
       0% { transform: translateY(-10vh) rotate(0); opacity: 1; }
       100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
     }
+
+    /* ── Mobile responsive ── */
+    @media (max-width: 480px) {
+      h1 { font-size: 1.1rem; margin: 10px 0 4px; }
+      .win-title { font-size: 1.3rem; margin-bottom: 12px; }
+      #progress { font-size: 0.65rem; margin-bottom: 4px; }
+      #game {
+        transform: scale(0.85);
+        transform-origin: top center;
+        height: 485px;
+      }
+      .tcg-card { width: 280px; padding: 8px; border-radius: 14px; }
+      .tcg-back { top: 8px; right: 8px; bottom: 8px; left: 8px; }
+      .card-overlay { font-size: 0.75rem; padding: 10px 12px; }
+      .card-footer h2 { font-size: 0.9rem; }
+      .card-footer { padding: 10px 12px; }
+      .back-text { font-size: 1.4rem; }
+      .back-heart { font-size: 42px; }
+      .back-header { font-size: 0.75rem; padding: 14px 16px 0; }
+      .back-desc { font-size: 0.6rem; }
+      .play-btn { font-size: 0.6rem; padding: 6px 18px; }
+      .btn { font-size: 0.75rem; padding: 6px 16px; }
+      .flip-hint { font-size: 0.55rem; }
+    }
+    @media (max-width: 380px) {
+      #game {
+        transform: scale(0.72);
+        height: 410px;
+      }
+      .tcg-card { width: 260px; }
+    }
   </style>
 </head>
 <body>
