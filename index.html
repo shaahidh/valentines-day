@@ -334,7 +334,7 @@
 
     /* ── Mobile responsive ── */
     @media (max-width: 480px) {
-      .game-wrap { justify-content: flex-start; padding-top: 10px; }
+      .game-wrap { justify-content: center; }
       h1 { font-size: 1.1rem; margin: 8px 0 4px; }
       #progress { font-size: 0.65rem; margin-bottom: 2px; }
       .btn { font-size: 0.75rem; padding: 6px 16px; }
@@ -639,33 +639,42 @@ function setupMobileDrag(piece) {
   let startX, startY, isDragging = false, dragReady = false;
   const canvasSize = PW + EXT * 2;
 
+  function liftPiece(t) {
+    isDragging = true;
+    var sz = canvasSize * gameScale;
+    piece.el.style.cssText =
+      'position:fixed;z-index:1000;width:' + sz + 'px;height:' + sz + 'px;' +
+      'left:' + (t.clientX - sz/2) + 'px;top:' + (t.clientY - sz/2) + 'px;' +
+      'filter:drop-shadow(3px 5px 10px rgba(0,0,0,0.4));touch-action:none;';
+    document.body.appendChild(piece.el);
+  }
+
   piece.el.addEventListener('touchstart', function(e) {
     if (piece.placed) return;
-    const t = e.touches[0];
+    var t = e.touches[0];
     startX = t.clientX;
     startY = t.clientY;
     isDragging = false;
     dragReady = true;
-  }, { passive: true });
+    // If piece is on the board already, start drag immediately
+    if (piece.el.parentElement === gameEl) {
+      e.preventDefault();
+      liftPiece(t);
+    }
+  }, { passive: false });
 
   piece.el.addEventListener('touchmove', function(e) {
     if (piece.placed || !dragReady) return;
-    const t = e.touches[0];
+    var t = e.touches[0];
+    // If in tray, require upward swipe to start drag
     if (!isDragging) {
-      const dy = startY - t.clientY;
-      if (dy > 12) {
-        isDragging = true;
-        const sz = canvasSize * gameScale;
-        piece.el.style.cssText =
-          'position:fixed;z-index:1000;width:' + sz + 'px;height:' + sz + 'px;' +
-          'left:' + (t.clientX - sz/2) + 'px;top:' + (t.clientY - sz/2) + 'px;' +
-          'filter:drop-shadow(3px 5px 10px rgba(0,0,0,0.4));touch-action:none;pointer-events:none;';
-        document.body.appendChild(piece.el);
+      if (startY - t.clientY > 12) {
+        liftPiece(t);
       } else { return; }
     }
     if (isDragging) {
       e.preventDefault();
-      const sz = canvasSize * gameScale;
+      var sz = canvasSize * gameScale;
       piece.el.style.left = (t.clientX - sz/2) + 'px';
       piece.el.style.top = (t.clientY - sz/2) + 'px';
     }
@@ -675,9 +684,7 @@ function setupMobileDrag(piece) {
     dragReady = false;
     if (!isDragging) return;
     isDragging = false;
-    piece.el.style.pointerEvents = '';
 
-    // Get drop position (last touch or piece center)
     var lastTouch = e.changedTouches[0];
     var dropX = lastTouch.clientX;
     var dropY = lastTouch.clientY;
@@ -691,7 +698,7 @@ function setupMobileDrag(piece) {
     var snapDist = 35;
 
     if (Math.abs(dropX - correctX) < snapDist && Math.abs(dropY - correctY) < snapDist) {
-      // Snap to board
+      // Snap — correct position
       piece.el.style.cssText = '';
       piece.el.style.left = piece.cx + 'px';
       piece.el.style.top = piece.cy + 'px';
@@ -707,9 +714,14 @@ function setupMobileDrag(piece) {
         }, 400);
       }
     } else {
-      // Return to tray
+      // Drop on the board at current position (player can rearrange)
+      var gameRect = gameEl.getBoundingClientRect();
+      var gameX = (dropX - gameRect.left) / gameScale - canvasSize / 2;
+      var gameY = (dropY - gameRect.top) / gameScale - canvasSize / 2;
       piece.el.style.cssText = '';
-      pieceTray.appendChild(piece.el);
+      piece.el.style.left = gameX + 'px';
+      piece.el.style.top = gameY + 'px';
+      gameEl.appendChild(piece.el);
     }
   });
 }
