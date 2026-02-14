@@ -363,7 +363,6 @@
           </div>
           <div class="card-footer">
             <h2><span>&hearts;</span> Forever Yours</h2>
-            <p>One of a kind</p>
           </div>
         </div>
         <!-- Back face -->
@@ -388,7 +387,10 @@
       </div>
     </div>
     <p class="flip-hint">move to tilt &middot; click to flip</p>
-    <button class="btn" onclick="location.reload()">Play Again</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn" id="saveCardBtn">Save Card</button>
+      <button class="btn" onclick="location.reload()">Play Again</button>
+    </div>
   </div>
 
   <!-- Video overlay -->
@@ -397,6 +399,7 @@
     <button class="video-close" id="videoClose">Close</button>
   </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 // ── Config ──
 const COLS = 4, ROWS = 6;
@@ -837,6 +840,22 @@ videoOverlay.addEventListener('click', (e) => {
     vlvVideo.pause();
     videoOverlay.classList.remove('show');
   }
+});
+
+// ── Save card ──
+document.getElementById('saveCardBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const card = document.getElementById('tcgCard');
+  // Reset tilt so card is flat for screenshot
+  const origTransform = card.style.transform;
+  card.style.transform = 'rotateY(0deg) rotateX(0deg)';
+  html2canvas(card, { useCORS: true, scale: 2, backgroundColor: null }).then(canvas => {
+    card.style.transform = origTransform;
+    const link = document.createElement('a');
+    link.download = 'valentine-card.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }).catch(() => { card.style.transform = origTransform; });
 });
 
 // ── Floating hearts background ──
