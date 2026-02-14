@@ -329,16 +329,33 @@
       100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
     }
 
+    /* ── Piece tray (hidden on desktop) ── */
+    .piece-tray { display: none; }
+
     /* ── Mobile responsive ── */
     @media (max-width: 480px) {
-      h1 { font-size: 1.1rem; margin: 10px 0 4px; }
-      .win-title { font-size: 1.3rem; margin-bottom: 12px; }
-      #progress { font-size: 0.65rem; margin-bottom: 4px; }
-      #game {
-        transform: scale(0.85);
-        transform-origin: top center;
-        height: 485px;
+      .game-wrap { justify-content: flex-start; padding-top: 10px; }
+      h1 { font-size: 1.1rem; margin: 8px 0 4px; }
+      #progress { font-size: 0.65rem; margin-bottom: 2px; }
+      .btn { font-size: 0.75rem; padding: 6px 16px; }
+      .piece-tray {
+        display: flex; align-items: center;
+        padding: 8px 12px; gap: 6px;
+        overflow-x: auto; -webkit-overflow-scrolling: touch;
+        width: 94vw;
+        border-top: 2px solid rgba(255,255,255,0.25);
+        margin-top: 4px; min-height: 80px;
       }
+      .piece-tray .piece {
+        position: relative !important;
+        left: auto !important; top: auto !important;
+        flex-shrink: 0;
+        width: 75px !important; height: 75px !important;
+        touch-action: pan-x; z-index: 1 !important;
+        filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2)) !important;
+      }
+      /* Card on mobile */
+      .win-title { font-size: 1.3rem; margin-bottom: 12px; }
       .tcg-card { width: 280px; padding: 8px; border-radius: 14px; }
       .tcg-back { top: 8px; right: 8px; bottom: 8px; left: 8px; }
       .card-overlay { font-size: 0.75rem; padding: 10px 12px; }
@@ -349,14 +366,9 @@
       .back-header { font-size: 0.75rem; padding: 14px 16px 0; }
       .back-desc { font-size: 0.6rem; }
       .play-btn { font-size: 0.6rem; padding: 6px 18px; }
-      .btn { font-size: 0.75rem; padding: 6px 16px; }
       .flip-hint { font-size: 0.55rem; }
     }
     @media (max-width: 380px) {
-      #game {
-        transform: scale(0.72);
-        height: 410px;
-      }
       .tcg-card { width: 260px; }
     }
   </style>
@@ -373,6 +385,7 @@
       </div>
     </div>
 
+    <div class="piece-tray" id="pieceTray"></div>
     <button class="btn" id="scBtn">Shuffle</button>
   </div>
 
@@ -446,18 +459,33 @@ const ghostCvs = document.getElementById('ghost');
 const ghostCtx = ghostCvs.getContext('2d');
 const progressEl = document.getElementById('progress');
 
+const pieceTray = document.getElementById('pieceTray');
+const isMobile = window.innerWidth <= 480;
+
 const edgeData = [];
 const pieces = [];
 let placedCount = 0;
+let gameScale = 1;
 
 // ── Layout ──
-function getGameWidth() {
-  return Math.min(window.innerWidth * 0.92, 740);
-}
 function layoutBoard() {
-  const gw = getGameWidth();
-  const bl = Math.round((gw - BW) / 2);
-  const bt = 15;
+  let gw, bl, bt;
+  if (isMobile) {
+    const needW = BW + EXT * 4;
+    gw = needW;
+    gameScale = Math.min(1, (window.innerWidth - 16) / needW);
+    gameEl.style.width = needW + 'px';
+    gameEl.style.maxWidth = 'none';
+    gameEl.style.transform = 'scale(' + gameScale + ')';
+    gameEl.style.transformOrigin = 'top center';
+    const origH = BH + 40;
+    gameEl.style.height = origH + 'px';
+    gameEl.style.marginBottom = -(origH * (1 - gameScale)) + 'px';
+  } else {
+    gw = Math.min(window.innerWidth * 0.92, 740);
+  }
+  bl = Math.round((gw - BW) / 2);
+  bt = 15;
   boardBox.style.left = bl + 'px';
   boardBox.style.top = bt + 'px';
   boardBox.style.width = BW + 'px';
@@ -554,8 +582,13 @@ function createPiece(img, r, c) {
 
   const piece = { row: r, col: c, el: cvs, cx, cy, placed: false };
   pieces.push(piece);
-  gameEl.appendChild(cvs);
-  setupDrag(piece);
+  if (isMobile) {
+    pieceTray.appendChild(cvs);
+    setupMobileDrag(piece);
+  } else {
+    gameEl.appendChild(cvs);
+    setupDrag(piece);
+  }
 }
 
 // ── Drag handling ──
@@ -601,11 +634,92 @@ function setupDrag(piece) {
   piece.el.addEventListener('pointerup', onUp);
 }
 
+// ── Mobile drag handling ──
+function setupMobileDrag(piece) {
+  let startX, startY, isDragging = false, dragReady = false;
+  const canvasSize = PW + EXT * 2;
+
+  piece.el.addEventListener('touchstart', function(e) {
+    if (piece.placed) return;
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    isDragging = false;
+    dragReady = true;
+  }, { passive: true });
+
+  piece.el.addEventListener('touchmove', function(e) {
+    if (piece.placed || !dragReady) return;
+    const t = e.touches[0];
+    if (!isDragging) {
+      const dy = startY - t.clientY;
+      if (dy > 12) {
+        isDragging = true;
+        const sz = canvasSize * gameScale;
+        piece.el.style.cssText =
+          'position:fixed;z-index:1000;width:' + sz + 'px;height:' + sz + 'px;' +
+          'left:' + (t.clientX - sz/2) + 'px;top:' + (t.clientY - sz/2) + 'px;' +
+          'filter:drop-shadow(3px 5px 10px rgba(0,0,0,0.4));touch-action:none;pointer-events:none;';
+        document.body.appendChild(piece.el);
+      } else { return; }
+    }
+    if (isDragging) {
+      e.preventDefault();
+      const sz = canvasSize * gameScale;
+      piece.el.style.left = (t.clientX - sz/2) + 'px';
+      piece.el.style.top = (t.clientY - sz/2) + 'px';
+    }
+  }, { passive: false });
+
+  piece.el.addEventListener('touchend', function(e) {
+    dragReady = false;
+    if (!isDragging) return;
+    isDragging = false;
+    piece.el.style.pointerEvents = '';
+
+    // Get drop position (last touch or piece center)
+    var lastTouch = e.changedTouches[0];
+    var dropX = lastTouch.clientX;
+    var dropY = lastTouch.clientY;
+
+    // Check snap against board position on screen
+    var boardRect = boardBox.getBoundingClientRect();
+    var scaleX = boardRect.width / BW;
+    var scaleY = boardRect.height / BH;
+    var correctX = boardRect.left + (piece.col * PW + PW/2) * scaleX;
+    var correctY = boardRect.top + (piece.row * PH + PH/2) * scaleY;
+    var snapDist = 35;
+
+    if (Math.abs(dropX - correctX) < snapDist && Math.abs(dropY - correctY) < snapDist) {
+      // Snap to board
+      piece.el.style.cssText = '';
+      piece.el.style.left = piece.cx + 'px';
+      piece.el.style.top = piece.cy + 'px';
+      piece.el.classList.add('placed');
+      piece.placed = true;
+      gameEl.appendChild(piece.el);
+      placedCount++;
+      progressEl.textContent = placedCount + ' / ' + (COLS * ROWS) + ' pieces';
+      if (placedCount === COLS * ROWS) {
+        setTimeout(function() {
+          document.getElementById('win').classList.add('show');
+          spawnConfetti();
+        }, 400);
+      }
+    } else {
+      // Return to tray
+      piece.el.style.cssText = '';
+      pieceTray.appendChild(piece.el);
+    }
+  });
+}
+
 // ── Scatter pieces ──
 function scatter() {
-  const gw = getGameWidth();
+  if (isMobile) { mobileScatter(); return; }
   const bl = layout.boardLeft;
   const bt = layout.boardTop;
+  const gw = layout.gameWidth;
   const sideSpace = bl - 20;
   const useSides = sideSpace >= 90;
   const shuffled = [...pieces].sort(() => Math.random() - 0.5);
@@ -632,6 +746,20 @@ function scatter() {
     });
     gameEl.style.minHeight = (startY + Math.ceil(shuffled.length / cols) * (PH + EXT + gap) + 30) + 'px';
   }
+  placedCount = 0;
+  progressEl.textContent = '0 / ' + (COLS * ROWS) + ' pieces';
+}
+
+function mobileScatter() {
+  pieces.forEach(p => {
+    p.placed = false;
+    p.el.classList.remove('placed');
+    p.el.style.cssText = '';
+    pieceTray.appendChild(p.el);
+  });
+  // Shuffle order in tray
+  const children = [...pieceTray.children].sort(() => Math.random() - 0.5);
+  children.forEach(c => pieceTray.appendChild(c));
   placedCount = 0;
   progressEl.textContent = '0 / ' + (COLS * ROWS) + ' pieces';
 }
@@ -844,7 +972,7 @@ img.onload = () => {
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++)
       createPiece(img, r, c);
-  scatter();
+  if (isMobile) mobileScatter(); else scatter();
 };
 img.src = 'image.png';
 
