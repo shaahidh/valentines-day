@@ -846,16 +846,19 @@ videoOverlay.addEventListener('click', (e) => {
 document.getElementById('saveCardBtn').addEventListener('click', (e) => {
   e.stopPropagation();
   const card = document.getElementById('tcgCard');
-  // Reset tilt so card is flat for screenshot
+  const back = card.querySelector('.tcg-back');
   const origTransform = card.style.transform;
-  card.style.transform = 'rotateY(0deg) rotateX(0deg)';
+  // Flatten card and hide back face for capture
+  card.style.transform = 'none';
+  back.style.display = 'none';
   html2canvas(card, { useCORS: true, scale: 2, backgroundColor: null }).then(canvas => {
     card.style.transform = origTransform;
+    back.style.display = '';
     const link = document.createElement('a');
     link.download = 'valentine-card.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
-  }).catch(() => { card.style.transform = origTransform; });
+  }).catch(() => { card.style.transform = origTransform; back.style.display = ''; });
 });
 
 // ── Floating hearts background ──
