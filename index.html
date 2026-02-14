@@ -343,7 +343,6 @@
     </div>
 
     <button class="btn" id="scBtn">Shuffle</button>
-    <button class="btn" id="autoBtn" style="font-size:0.65rem;padding:4px 10px;opacity:0.5">Auto Solve</button>
   </div>
 
   <!-- Win overlay with interactive TCG card -->
@@ -816,27 +815,6 @@ img.onload = () => {
 img.src = 'image.png';
 
 document.getElementById('scBtn').onclick = scatter;
-
-document.getElementById('autoBtn').onclick = () => {
-  pieces.forEach((p, i) => {
-    setTimeout(() => {
-      p.el.style.transition = 'left 0.4s ease, top 0.4s ease';
-      p.el.style.left = p.cx + 'px';
-      p.el.style.top  = p.cy + 'px';
-      p.el.classList.add('placed');
-      p.placed = true;
-      placedCount++;
-      progressEl.textContent = placedCount + ' / ' + (COLS * ROWS) + ' pieces';
-      setTimeout(() => { p.el.style.transition = ''; }, 400);
-      if (placedCount === COLS * ROWS) {
-        setTimeout(() => {
-          document.getElementById('win').classList.add('show');
-          spawnConfetti();
-        }, 500);
-      }
-    }, i * 80);
-  });
-};
 
 // ── Video player ──
 const videoOverlay = document.getElementById('videoOverlay');
