@@ -45,6 +45,7 @@
       width: 94vw; max-width: 900px;
       height: 570px;
       margin: 0 auto;
+      overflow: visible;
     }
     #boardBox {
       position: absolute;
@@ -340,17 +341,19 @@
       .btn { font-size: 0.75rem; padding: 6px 16px; }
       .piece-tray {
         display: flex; align-items: center;
-        padding: 8px 12px; gap: 6px;
+        padding: 10px 14px; gap: 8px;
         overflow-x: auto; -webkit-overflow-scrolling: touch;
         width: 94vw;
-        border-top: 2px solid rgba(255,255,255,0.25);
-        margin-top: 4px; min-height: 80px;
+        background: rgba(255,255,255,0.12);
+        border-radius: 10px;
+        border: 1.5px solid rgba(255,255,255,0.2);
+        margin-top: 6px; min-height: 90px;
       }
       .piece-tray .piece {
         position: relative !important;
         left: auto !important; top: auto !important;
         flex-shrink: 0;
-        width: 75px !important; height: 75px !important;
+        width: 80px !important; height: 80px !important;
         touch-action: pan-x; z-index: 1 !important;
         filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2)) !important;
       }
@@ -476,8 +479,12 @@ function layoutBoard() {
     gameScale = Math.min(1, (window.innerWidth - 16) / needW);
     gameEl.style.width = needW + 'px';
     gameEl.style.maxWidth = 'none';
+    gameEl.style.margin = '0';
+    gameEl.style.alignSelf = 'flex-start';
     gameEl.style.transform = 'scale(' + gameScale + ')';
-    gameEl.style.transformOrigin = 'top center';
+    gameEl.style.transformOrigin = 'top left';
+    // Center: position left edge so scaled game is centered in viewport
+    gameEl.style.marginLeft = ((window.innerWidth - needW * gameScale) / 2) + 'px';
     const origH = BH + 40;
     gameEl.style.height = origH + 'px';
     gameEl.style.marginBottom = -(origH * (1 - gameScale)) + 'px';
@@ -699,9 +706,9 @@ function setupMobileDrag(piece) {
 
     if (Math.abs(dropX - correctX) < snapDist && Math.abs(dropY - correctY) < snapDist) {
       // Snap — correct position
-      piece.el.style.cssText = '';
-      piece.el.style.left = piece.cx + 'px';
-      piece.el.style.top = piece.cy + 'px';
+      piece.el.style.cssText =
+        'position:absolute;left:' + piece.cx + 'px;top:' + piece.cy + 'px;' +
+        'cursor:default;z-index:15;filter:none;pointer-events:none;';
       piece.el.classList.add('placed');
       piece.placed = true;
       gameEl.appendChild(piece.el);
@@ -714,14 +721,32 @@ function setupMobileDrag(piece) {
         }, 400);
       }
     } else {
-      // Drop on the board at current position (player can rearrange)
-      var gameRect = gameEl.getBoundingClientRect();
-      var gameX = (dropX - gameRect.left) / gameScale - canvasSize / 2;
-      var gameY = (dropY - gameRect.top) / gameScale - canvasSize / 2;
-      piece.el.style.cssText = '';
-      piece.el.style.left = gameX + 'px';
-      piece.el.style.top = gameY + 'px';
-      gameEl.appendChild(piece.el);
+      // Check if drop is within/near the board area
+      var boardRect = boardBox.getBoundingClientRect();
+      var nearBoard = (dropX >= boardRect.left - 30 && dropX <= boardRect.right + 30 &&
+                       dropY >= boardRect.top - 30 && dropY <= boardRect.bottom + 30);
+
+      if (nearBoard) {
+        // Keep on board at drop position for rearranging
+        var gameRect = gameEl.getBoundingClientRect();
+        var gameX = (dropX - gameRect.left) / gameScale - canvasSize / 2;
+        var gameY = (dropY - gameRect.top) / gameScale - canvasSize / 2;
+        // Clamp within game bounds
+        var maxX = parseFloat(gameEl.style.width || gameEl.offsetWidth) - canvasSize / 2;
+        var maxY = parseFloat(gameEl.style.height || gameEl.offsetHeight) - canvasSize / 2;
+        gameX = Math.max(-EXT, Math.min(gameX, maxX));
+        gameY = Math.max(-EXT, Math.min(gameY, maxY));
+        piece.el.style.cssText =
+          'position:absolute;z-index:20;cursor:grab;touch-action:none;' +
+          'filter:drop-shadow(1px 2px 3px rgba(0,0,0,0.3));' +
+          'left:' + gameX + 'px;top:' + gameY + 'px;';
+        gameEl.appendChild(piece.el);
+      } else {
+        // Dropped far from board — return to tray
+        piece.el.style.cssText = '';
+        piece.el.className = 'piece';
+        pieceTray.appendChild(piece.el);
+      }
     }
   });
 }
@@ -765,7 +790,7 @@ function scatter() {
 function mobileScatter() {
   pieces.forEach(p => {
     p.placed = false;
-    p.el.classList.remove('placed');
+    p.el.className = 'piece';
     p.el.style.cssText = '';
     pieceTray.appendChild(p.el);
   });
